@@ -17,7 +17,8 @@ class ReleaseManifestReader {
             applicationId = root.getString("applicationId"),
             versionName = root.getString("versionName"),
             versionCode = root.getInt("versionCode"),
-            appName = root.optString("appName")
+            appName = root.optString("appName"),
+            buildType = root.optString("buildType", BuildType.RELEASE.id)
         )
     }
 }

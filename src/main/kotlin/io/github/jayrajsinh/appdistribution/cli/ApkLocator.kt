@@ -27,13 +27,13 @@ class ApkLocator(
         get() = File(project.appDirectory, "build/outputs/apk")
 
     /**
-     * [buildStartedAt] (epoch millis) is only used when there's no
-     * output metadata (very old Android Gradle Plugin versions).
+     * APKs of [buildType]. [buildStartedAt] (epoch millis) is only used when
+     * there's no output metadata (very old Android Gradle Plugin versions).
      */
-    fun locate(buildStartedAt: Long): Result {
+    fun locate(buildStartedAt: Long, buildType: BuildType = BuildType.RELEASE): Result {
 
-        val built = fromOutputMetadata()
-            ?: fromTimestamps(buildStartedAt)
+        val built = fromOutputMetadata(buildType)
+            ?: fromTimestamps(buildStartedAt, buildType)
 
         val (unsigned, signed) = built.partition {
             it.name.contains("unsigned", ignoreCase = true)
@@ -42,13 +42,16 @@ class ApkLocator(
         return when {
             signed.size == 1 -> Result.Found(signed.single())
             signed.size > 1 -> Result.Multiple(signed.sortedBy { it.path })
-            unsigned.isNotEmpty() -> Result.Unsigned
+            // Debug builds are always signed with the debug key
+            unsigned.isNotEmpty() && buildType == BuildType.RELEASE -> Result.Unsigned
+            unsigned.size == 1 -> Result.Found(unsigned.single())
+            unsigned.size > 1 -> Result.Multiple(unsigned.sortedBy { it.path })
             else -> Result.NotFound
         }
     }
 
-    /** Release APKs listed in output-metadata.json, or null if there is none. */
-    private fun fromOutputMetadata(): List<File>? {
+    /** APKs of [buildType] listed in output-metadata.json, or null if there is none. */
+    private fun fromOutputMetadata(buildType: BuildType): List<File>? {
 
         val metadataFiles = outputs
             .walkTopDown()
@@ -63,10 +66,10 @@ class ApkLocator(
             try {
                 val json = JSONObject(metadata.readText())
 
-                // e.g. "release", "freeRelease"
+                // e.g. "release", "freeRelease", "debug"
                 val variant = json.optString("variantName")
 
-                if (!variant.endsWith("release", ignoreCase = true)) {
+                if (!buildType.matches(variant)) {
                     return@flatMap emptyList()
                 }
 
@@ -84,12 +87,12 @@ class ApkLocator(
         }
     }
 
-    private fun fromTimestamps(buildStartedAt: Long): List<File> =
+    private fun fromTimestamps(buildStartedAt: Long, buildType: BuildType): List<File> =
         outputs
             .walkTopDown()
             .filter { it.isFile && it.extension == "apk" }
-            // Only release variants: .../apk/<flavor?>/release/*.apk
-            .filter { it.parentFile.name.endsWith("release", ignoreCase = true) }
+            // .../apk/<flavor?>/<buildType>/*.apk
+            .filter { buildType.matches(it.parentFile.name) }
             // Allow for coarse file timestamps
             .filter { it.lastModified() >= buildStartedAt - 2_000 }
             .toList()

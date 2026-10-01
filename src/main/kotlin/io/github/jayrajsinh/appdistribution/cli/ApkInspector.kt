@@ -16,7 +16,9 @@ class ApkInspector(
         val applicationId: String,
         val versionName: String,
         val versionCode: Int,
-        val appName: String
+        val appName: String,
+        /** Debug builds are marked debuggable; release builds normally aren't. */
+        val debuggable: Boolean
     )
 
     fun inspect(apk: File): ApkInfo {
@@ -68,7 +70,8 @@ class ApkInspector(
             applicationId = attribute("name"),
             versionName = attribute("versionName"),
             versionCode = attribute("versionCode").toInt(),
-            appName = appName
+            appName = appName,
+            debuggable = output.lineSequence().any { it.trim() == "application-debuggable" }
         )
     }
 

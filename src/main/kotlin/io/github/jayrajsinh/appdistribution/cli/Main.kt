@@ -7,8 +7,9 @@ private val USAGE = """
     Firebase App Distribution.
 
     Usage (run from the root of an Android project):
-      appdist release [--apk <path>]
-          Build the release APK (or use an existing one) and record its details.
+      appdist release [--build-type release|debug] [--apk <path>]
+          Build the APK (release by default) or use an existing one, and
+          record its details.
 
       appdist distribute [--testers-file <file>] [--release-notes-file <file>]
           Upload the last release to Firebase App Distribution.

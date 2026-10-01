@@ -91,7 +91,8 @@ class SlackNotifier private constructor(
     internal fun buildMessage(release: Release): JSONObject {
         val m = release.manifest
         val name = m.appName.ifEmpty { m.applicationId }
-        val version = "${m.versionName} (${m.versionCode})"
+        val debug = m.buildType == BuildType.DEBUG.id
+        val version = "${m.versionName} (${m.versionCode})" + if (debug) " debug build" else ""
 
         val blocks = JSONArray()
 
@@ -149,7 +150,8 @@ class SlackNotifier private constructor(
         val name = m.appName.ifEmpty { m.applicationId }
 
         val text = buildString {
-            append("*${escape(name)}* ${m.versionName} (${m.versionCode}) uploaded to Firebase App Distribution")
+            val debug = if (m.buildType == BuildType.DEBUG.id) " debug build" else ""
+            append("*${escape(name)}* ${m.versionName} (${m.versionCode})$debug uploaded to Firebase App Distribution")
 
             val notes = ReleaseNotesFormatter.plainText(release.releaseNotes)
             if (notes.isNotEmpty()) append("\n\n").append(escape(notes))

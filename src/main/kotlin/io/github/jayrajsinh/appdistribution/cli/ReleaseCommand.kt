@@ -3,15 +3,15 @@ package io.github.jayrajsinh.appdistribution.cli
 import java.io.File
 
 /**
- * appdist release [--apk <path>]
+ * appdist release [--build-type release|debug] [--apk <path>]
  *
- * Builds the release APK with Gradle, finds the APK that was actually
- * produced, reads its package and version from the APK itself, and writes
- * the release manifest (see [AndroidProject.releaseManifest]) for
- * `appdist distribute`.
+ * Builds the APK with Gradle (release by default), finds the APK that was
+ * actually produced, reads its package, version and build type from the APK
+ * itself, and writes the release manifest (see
+ * [AndroidProject.releaseManifest]) for `appdist distribute`.
  *
- * With --apk, skips the build and prepares that APK instead (used when a
- * project with product flavors produced several release APKs).
+ * With --apk, skips the build and prepares that APK instead (an existing
+ * file, or one of several flavor APKs).
  */
 class ReleaseCommand {
 
@@ -42,6 +42,10 @@ class ReleaseCommand {
 
         val chosenApk = argument(args, "--apk")
 
+        val buildType = argument(args, "--build-type")
+            ?.let { BuildType.parse(it) ?: return fail("Unknown build type \"$it\" (use release or debug)") }
+            ?: BuildType.RELEASE
+
         val apk = if (chosenApk != null) {
 
             File(chosenApk).takeIf { it.isFile }
@@ -51,7 +55,7 @@ class ReleaseCommand {
 
             progress(15, "Checking project")
 
-            if (!ProjectValidator(project).validate()) {
+            if (!ProjectValidator(project).validate(buildType)) {
                 progress(100, "Release validation failed")
 
                 println()
@@ -62,7 +66,7 @@ class ReleaseCommand {
 
             progress(30, "Project validation complete")
 
-            build(project) ?: return 1
+            build(project, buildType) ?: return 1
         }
 
         progress(90, "Reading release details from APK")
@@ -79,7 +83,8 @@ class ReleaseCommand {
             applicationId = info.applicationId,
             versionName = info.versionName,
             versionCode = info.versionCode,
-            appName = info.appName
+            appName = info.appName,
+            buildType = if (info.debuggable) BuildType.DEBUG.id else BuildType.RELEASE.id
         )
 
         println()
@@ -90,6 +95,7 @@ class ReleaseCommand {
         println("App ID: ${metadata.applicationId}")
         println("Version: ${metadata.versionName}")
         println("Build: ${metadata.versionCode}")
+        println("Type: ${BuildType.parse(metadata.buildType)?.label ?: metadata.buildType}")
         println("APK: ${metadata.apkPath}")
 
         progress(95, "Creating release manifest")
@@ -104,28 +110,30 @@ class ReleaseCommand {
         println("Manifest:")
         println(manifest.absolutePath)
 
-        progress(100, "Release ready")
+        progress(100, "Build ready")
 
         println()
-        println("✓ Release build ready")
+        println("✓ Build ready to distribute")
 
         return 0
     }
 
-    /** Runs assembleRelease and returns the APK it produced, or null. */
-    private fun build(project: AndroidProject): File? {
+    /** Runs assemble<BuildType> and returns the APK it produced, or null. */
+    private fun build(project: AndroidProject, buildType: BuildType): File? {
+
+        val kind = buildType.id
 
         println()
-        println("Building release APK...")
+        println("Building $kind APK...")
 
-        progress(35, "Building release APK")
+        progress(35, "Building ${buildType.label.lowercase()} APK")
 
         val startedAt = System.currentTimeMillis()
 
         val exitCode = ProcessBuilder(
             project.gradleWrapper.absolutePath,
             // Only the application module, not every module in the project
-            "${project.appModulePath}:assembleRelease",
+            "${project.appModulePath}:assemble${buildType.taskSuffix}",
             "--console=plain"
         )
             .directory(project.directory)
@@ -134,29 +142,29 @@ class ReleaseCommand {
             .waitFor()
 
         if (exitCode != 0) {
-            progress(100, "Release build failed")
+            progress(100, "Build failed")
 
             println()
-            println("✗ Release build failed")
+            println("✗ ${buildType.label} build failed")
 
             return null
         }
 
-        progress(85, "Release APK generated")
+        progress(85, "${buildType.label} APK generated")
 
-        return when (val result = ApkLocator(project).locate(startedAt)) {
+        return when (val result = ApkLocator(project).locate(startedAt, buildType)) {
 
             is ApkLocator.Result.Found -> {
                 println()
-                println("✓ Release APK generated")
+                println("✓ ${buildType.label} APK generated")
                 result.apk
             }
 
             is ApkLocator.Result.Multiple -> {
-                progress(100, "Choose which APK to release")
+                progress(100, "Choose which APK to distribute")
 
                 println()
-                println("✗ Several release APKs were built (product flavors):")
+                println("✗ Several $kind APKs were built (product flavors):")
                 result.apks.forEach { println("  ${it.absolutePath}") }
                 println()
                 println("Re-run with: appdist release --apk <path>")
@@ -187,10 +195,10 @@ class ReleaseCommand {
             }
 
             ApkLocator.Result.NotFound -> {
-                progress(100, "Release APK not found")
+                progress(100, "APK not found")
 
                 println()
-                println("✗ Build succeeded but no release APK was found in")
+                println("✗ Build succeeded but no $kind APK was found in")
                 println(File(project.appDirectory, "build/outputs/apk").absolutePath)
 
                 null

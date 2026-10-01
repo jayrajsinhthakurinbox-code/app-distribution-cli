@@ -6,7 +6,7 @@ class ProjectValidator(
     private val project: AndroidProject
 ) {
 
-    fun validate(): Boolean {
+    fun validate(buildType: BuildType = BuildType.RELEASE): Boolean {
 
         println()
         println("Checking project...")
@@ -14,7 +14,10 @@ class ProjectValidator(
 
         // Signing can also live in convention plugins or included scripts,
         // so this only warns; an unsigned build is caught after building.
-        if (checkSigningConfiguration()) {
+        // Debug builds are signed with the debug key automatically.
+        if (buildType == BuildType.DEBUG) {
+            println("✓ Debug build (signed with the debug key)")
+        } else if (checkSigningConfiguration()) {
             println("✓ Signing configuration found")
         } else {
             println("⚠ No signingConfig found in the app build file")

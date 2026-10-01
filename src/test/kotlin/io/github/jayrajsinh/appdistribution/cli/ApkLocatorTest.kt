@@ -115,4 +115,26 @@ class ApkLocatorTest {
         assertIs<ApkLocator.Result.Multiple>(result)
         assertEquals(listOf(free, pro), result.apks)
     }
+
+    @Test
+    fun `debug build type finds the debug apk`() {
+        apk("release/app-release.apk")
+        val debug = apk("debug/app-debug.apk")
+        metadata("release", "release", "app-release.apk")
+        metadata("debug", "debug", "app-debug.apk")
+
+        assertEquals(ApkLocator.Result.Found(debug), ApkLocator(project).locate(0, BuildType.DEBUG))
+    }
+
+    @Test
+    fun `debug flavors are listed and never reported unsigned`() {
+        val free = apk("free/debug/app-free-debug.apk")
+        val pro = apk("pro/debug/app-pro-debug.apk")
+        metadata("free/debug", "freeDebug", "app-free-debug.apk")
+        metadata("pro/debug", "proDebug", "app-pro-debug.apk")
+
+        val result = ApkLocator(project).locate(0, BuildType.DEBUG)
+        assertIs<ApkLocator.Result.Multiple>(result)
+        assertEquals(listOf(free, pro), result.apks)
+    }
 }

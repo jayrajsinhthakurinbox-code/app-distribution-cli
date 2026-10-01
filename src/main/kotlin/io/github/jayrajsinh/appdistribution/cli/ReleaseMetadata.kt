@@ -7,5 +7,7 @@ data class ReleaseMetadata(
     val versionName: String,
     val versionCode: Int,
     /** App label from the APK, e.g. "My App"; empty if unknown. */
-    val appName: String = ""
+    val appName: String = "",
+    /** "release" or "debug", read from the APK. */
+    val buildType: String = BuildType.RELEASE.id
 )

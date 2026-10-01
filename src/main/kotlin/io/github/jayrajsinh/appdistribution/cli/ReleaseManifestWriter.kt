@@ -17,6 +17,7 @@ class ReleaseManifestWriter {
             .put("versionName", metadata.versionName)
             .put("versionCode", metadata.versionCode)
             .put("appName", metadata.appName)
+            .put("buildType", metadata.buildType)
 
         manifestFile.writeText(json.toString(2))
 
