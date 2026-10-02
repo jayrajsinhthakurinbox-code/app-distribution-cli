@@ -13,8 +13,9 @@ from a terminal or CI.
 Run from the root of an Android project:
 
 ```bash
-appdist release                 # build the release APK and record its details
-appdist release --apk my.apk    # use an existing APK instead of building
+appdist release                      # build the release APK and record its details
+appdist release --build-type debug   # build the debug APK instead
+appdist release --apk my.apk         # use an existing APK instead of building
 appdist distribute --testers-file testers.txt --release-notes-file notes.txt
 ```
 
@@ -27,7 +28,8 @@ What it takes care of:
 - **Reads version and package from the built APK** with the SDK's `aapt2`,
   however your build declares them, and finds the APK Gradle actually
   produced (flavors, custom names, up-to-date builds).
-- **Detects unsigned builds** and says so.
+- **Detects unsigned builds** and says so. Debug builds use the debug key,
+  and whether an APK is a debug build is read from the APK itself.
 - **Finds the Firebase app** for your package in `google-services.json`
   (module root or `src/<variant>/`).
 - **Firebase CLI**: uses an installed `firebase`, or `appdist firebase --yes`
@@ -54,6 +56,13 @@ be signed by your Gradle config, or by the standard
 `android.injected.signing.*` properties (what Android Studio's
 *Generate Signed APK* wizard uses), e.g. as `ORG_GRADLE_PROJECT_…`
 environment variables.
+
+## Platform support
+
+Developed and tested on macOS. Linux should work with the `firebase` CLI
+already installed, but isn't tested. Windows isn't supported yet (the build
+runs `./gradlew`, and the automatic Firebase CLI download is the macOS
+binary).
 
 ## Build
 
